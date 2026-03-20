@@ -4,9 +4,9 @@ import (
 	"context"
 	"sync"
 
-	"github.com/resmoio/kubernetes-event-exporter/pkg/kube"
-	"github.com/resmoio/kubernetes-event-exporter/pkg/metrics"
-	"github.com/resmoio/kubernetes-event-exporter/pkg/sinks"
+	"github.com/taihen/kubernetes-event-exporter/pkg/kube"
+	"github.com/taihen/kubernetes-event-exporter/pkg/metrics"
+	"github.com/taihen/kubernetes-event-exporter/pkg/sinks"
 	"github.com/rs/zerolog/log"
 )
 

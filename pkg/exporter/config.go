@@ -6,8 +6,8 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/resmoio/kubernetes-event-exporter/pkg/kube"
-	"github.com/resmoio/kubernetes-event-exporter/pkg/sinks"
+	"github.com/taihen/kubernetes-event-exporter/pkg/kube"
+	"github.com/taihen/kubernetes-event-exporter/pkg/sinks"
 	"github.com/rs/zerolog/log"
 	"k8s.io/client-go/rest"
 )
