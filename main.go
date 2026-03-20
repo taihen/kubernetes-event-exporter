@@ -8,10 +8,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/resmoio/kubernetes-event-exporter/pkg/exporter"
-	"github.com/resmoio/kubernetes-event-exporter/pkg/kube"
-	"github.com/resmoio/kubernetes-event-exporter/pkg/metrics"
-	"github.com/resmoio/kubernetes-event-exporter/pkg/setup"
+	"github.com/taihen/kubernetes-event-exporter/pkg/exporter"
+	"github.com/taihen/kubernetes-event-exporter/pkg/kube"
+	"github.com/taihen/kubernetes-event-exporter/pkg/metrics"
+	"github.com/taihen/kubernetes-event-exporter/pkg/setup"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )

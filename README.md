@@ -1,9 +1,10 @@
 # kubernetes-event-exporter
 
-> **Note**: This is an active fork of [Opsgenie Kubernetes Event Exporter](https://github.com/opsgenie/kubernetes-event-exporter)
-since that is not maintained since November 2021. Development is sponsored by [Resmo](https://www.resmo.com).
+> **Note**: This is a fork of [resmoio/kubernetes-event-exporter](https://github.com/resmoio/kubernetes-event-exporter),
+> which itself was a fork of the original [Opsgenie Kubernetes Event Exporter](https://github.com/opsgenie/kubernetes-event-exporter).
+> This fork is independently maintained and diverged from upstream.
 
-> This tool is presented at [KubeCon 2019 San Diego](https://kccncna19.sched.com/event/6aa61eca397e4ff2bdbb2845e5aebb81).
+> This tool was originally presented at [KubeCon 2019 San Diego](https://kccncna19.sched.com/event/6aa61eca397e4ff2bdbb2845e5aebb81).
 
 This tool allows exporting the often missed Kubernetes events to various outputs so that they can be used for
 observability or alerting purposes. You won't believe what you are missing.
@@ -27,7 +28,7 @@ kubectl create namespace monitoring
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - https://github.com/resmoio/kubernetes-event-exporter?ref=master
+  - https://github.com/taihen/kubernetes-event-exporter?ref=master
 ```
 
 ### Helm

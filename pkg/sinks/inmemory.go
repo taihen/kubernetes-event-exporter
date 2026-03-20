@@ -2,7 +2,7 @@ package sinks
 
 import (
 	"context"
-	"github.com/resmoio/kubernetes-event-exporter/pkg/kube"
+	"github.com/taihen/kubernetes-event-exporter/pkg/kube"
 )
 
 type InMemoryConfig struct {
