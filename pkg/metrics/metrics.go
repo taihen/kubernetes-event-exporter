@@ -2,7 +2,9 @@ package metrics
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -11,7 +13,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/exporter-toolkit/web"
 	"github.com/taihen/kubernetes-event-exporter/pkg/version"
-	"github.com/rs/zerolog/log"
 )
 
 type Store struct {
@@ -24,25 +25,12 @@ type Store struct {
 	KubeApiReadRequests  prometheus.Counter
 }
 
-// promLogger implements promhttp.Logger
-type promLogger struct{}
-
-func (pl promLogger) Println(v ...interface{}) {
-	log.Logger.Error().Msg(fmt.Sprint(v...))
-}
-
-// promLogger implements the Logger interface
-func (pl promLogger) Log(v ...interface{}) error {
-	log.Logger.Info().Msg(fmt.Sprint(v...))
-	return nil
-}
-
 func Init(addr string, tlsConf string) {
 	// Setup the prometheus metrics machinery
 	// Add Go module build info.
 	prometheus.MustRegister(collectors.NewBuildInfoCollector())
 
-	promLogger := promLogger{}
+	promLogger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	metricsPath := "/metrics"
 
 	// Expose the registered metrics via HTTP.
