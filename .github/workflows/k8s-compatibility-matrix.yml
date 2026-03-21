@@ -1,0 +1,223 @@
+name: Kubernetes Compatibility Matrix
+
+on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - docs/matrix.md
+  release:
+    types:
+      - published
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    name: Prepare compatibility run
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.versions.outputs.matrix }}
+      row_label: ${{ steps.meta.outputs.row_label }}
+      source_ref: ${{ steps.meta.outputs.source_ref }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Select tested row and source ref
+        id: meta
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          GITHUB_SHA_VALUE: ${{ github.sha }}
+        run: |
+          if [ "${EVENT_NAME}" = "release" ]; then
+            echo "row_label=${RELEASE_TAG}" >> "${GITHUB_OUTPUT}"
+            echo "source_ref=refs/tags/${RELEASE_TAG}" >> "${GITHUB_OUTPUT}"
+          else
+            echo "row_label=master" >> "${GITHUB_OUTPUT}"
+            echo "source_ref=${GITHUB_SHA_VALUE}" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Load Kubernetes compatibility versions
+        id: versions
+        run: |
+          python - <<'PY' >> "${GITHUB_OUTPUT}"
+          import json
+          from pathlib import Path
+
+          versions = json.loads(Path(".github/k8s-compatibility-versions.json").read_text())
+          print(f"matrix={json.dumps(versions, separators=(',', ':'))}")
+          PY
+
+  compatibility:
+    name: Kubernetes ${{ matrix.k8s_version }}
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.prepare.outputs.matrix) }}
+    steps:
+      - name: Check out tested source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.source_ref }}
+          fetch-depth: 0
+
+      - name: Set up Go 1.26.1
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.1"
+
+      - name: Install kind
+        run: |
+          curl -fsSL -o ./kind https://kind.sigs.k8s.io/dl/v0.31.0/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+
+      - name: Install kubectl
+        run: |
+          curl -fsSL -o ./kubectl "https://dl.k8s.io/release/v${{ matrix.k8s_version }}.0/bin/linux/amd64/kubectl"
+          chmod +x ./kubectl
+          sudo mv ./kubectl /usr/local/bin/kubectl
+
+      - name: Create kind cluster
+        run: |
+          kind create cluster \
+            --name compat \
+            --image "${{ matrix.kind_node_image }}" \
+            --wait 300s
+
+      - name: Build exporter image
+        run: docker build -t local/kubernetes-event-exporter:test .
+
+      - name: Load exporter image into kind
+        run: kind load docker-image local/kubernetes-event-exporter:test --name compat
+
+      - name: Run compatibility smoke test
+        id: smoke
+        shell: bash
+        run: |
+          set +e
+          bash scripts/smoke-test-k8s-compat.sh local/kubernetes-event-exporter:test
+          rc=$?
+          if [ "${rc}" -eq 0 ]; then
+            status="pass"
+          else
+            status="fail"
+          fi
+
+          mkdir -p compatibility-results
+          K8S_VERSION="${{ matrix.k8s_version }}" TEST_STATUS="${status}" python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          Path("compatibility-results").mkdir(exist_ok=True)
+          Path(f"compatibility-results/{os.environ['K8S_VERSION']}.json").write_text(
+              json.dumps(
+                  {
+                      "k8s_version": os.environ["K8S_VERSION"],
+                      "status": os.environ["TEST_STATUS"],
+                  },
+                  indent=2,
+              )
+              + "\n"
+          )
+          PY
+          echo "status=${status}" >> "${GITHUB_OUTPUT}"
+          exit 0
+
+      - name: Upload compatibility result
+        uses: actions/upload-artifact@v4
+        with:
+          name: compatibility-${{ matrix.k8s_version }}
+          path: compatibility-results/${{ matrix.k8s_version }}.json
+
+      - name: Delete kind cluster
+        if: always()
+        run: kind delete cluster --name compat
+
+  update-matrix:
+    name: Update docs matrix
+    needs:
+      - prepare
+      - compatibility
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out master
+        uses: actions/checkout@v6
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Download compatibility results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: compatibility-*
+          path: compatibility-results
+          merge-multiple: true
+
+      - name: Update compatibility matrix
+        run: |
+          python scripts/update-k8s-compat-matrix.py \
+            --versions-file .github/k8s-compatibility-versions.json \
+            --results-dir compatibility-results \
+            --row-label "${{ needs.prepare.outputs.row_label }}" \
+            --matrix-file docs/matrix.md
+
+      - name: Commit matrix update
+        run: |
+          if git diff --quiet -- docs/matrix.md; then
+            echo "docs/matrix.md is already up to date"
+            exit 0
+          fi
+
+          git add docs/matrix.md
+          GIT_AUTHOR_NAME="github-actions[bot]" \
+          GIT_AUTHOR_EMAIL="41898282+github-actions[bot]@users.noreply.github.com" \
+          GIT_COMMITTER_NAME="github-actions[bot]" \
+          GIT_COMMITTER_EMAIL="41898282+github-actions[bot]@users.noreply.github.com" \
+          git commit -m "docs: update Kubernetes compatibility matrix for ${{ needs.prepare.outputs.row_label }}"
+          git push origin HEAD:master
+
+  fail-on-compatibility-regression:
+    name: Fail if any Kubernetes version failed
+    needs:
+      - update-matrix
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download compatibility results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: compatibility-*
+          path: compatibility-results
+          merge-multiple: true
+
+      - name: Check for failures
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          failures = []
+          for file_path in sorted(Path("compatibility-results").glob("*.json")):
+              data = json.loads(file_path.read_text())
+              if data["status"] != "pass":
+                  failures.append(data["k8s_version"])
+
+          if failures:
+              raise SystemExit(
+                  "Compatibility smoke tests failed for Kubernetes versions: "
+                  + ", ".join(failures)
+              )
+          PY
