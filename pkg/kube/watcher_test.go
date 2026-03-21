@@ -301,3 +301,31 @@ func TestOnEvent_DeletedObjects(t *testing.T) {
 	require.Equal(t, map[string]string(nil), event.InvolvedObject.Labels)
 	require.Equal(t, []metav1.OwnerReference(nil), event.InvolvedObject.OwnerReferences)
 }
+
+func TestEventWatcher_OnAdd(t *testing.T) {
+	metricsStore := metrics.NewMetricsStore("test_")
+	defer metrics.DestroyMetricsStore(metricsStore)
+	ew := newMockEventWatcher(300, metricsStore)
+
+	received := EnhancedEvent{}
+	ew.fn = func(e *EnhancedEvent) {
+		received = *e
+	}
+
+	startup := time.Now().Add(-10 * time.Minute)
+	ew.setStartUpTime(startup)
+	event := corev1.Event{
+		ObjectMeta:    metav1.ObjectMeta{Name: "event1"},
+		LastTimestamp: metav1.Time{Time: startup.Add(8 * time.Minute)},
+		InvolvedObject: corev1.ObjectReference{
+			UID:  "test",
+			Name: "test-1",
+		},
+	}
+
+	ew.OnAdd(&event, true)
+
+	require.Equal(t, types.UID("test"), received.InvolvedObject.UID)
+	require.Equal(t, "test-1", received.InvolvedObject.Name)
+	require.Equal(t, float64(1), testutil.ToFloat64(metricsStore.EventsProcessed))
+}
