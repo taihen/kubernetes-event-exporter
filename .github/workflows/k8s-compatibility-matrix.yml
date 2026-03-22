@@ -160,7 +160,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download compatibility results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: compatibility-*
           path: compatibility-results
@@ -197,7 +197,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download compatibility results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: compatibility-*
           path: compatibility-results
