@@ -27,10 +27,12 @@ kubectl -n "${SMOKE_NAMESPACE}" run "${SMOKE_POD_NAME}" --image="${SMOKE_IMAGE}"
 
 for ((attempt=1; attempt<=POLL_ATTEMPTS; attempt++)); do
   logs="$(kubectl -n "${MONITORING_NAMESPACE}" logs deployment/event-exporter --tail=400 2>/dev/null || true)"
-  if printf '%s' "${logs}" | rg -q '"namespace":"smoke"' && printf '%s' "${logs}" | rg -q '"name":"bad-image"'; then
-    printf '%s' "${logs}" | rg -m 1 '"namespace":"smoke".*"name":"bad-image"|"name":"bad-image".*"namespace":"smoke"' || true
-    exit 0
-  fi
+  while IFS= read -r line; do
+    if [[ "${line}" == *'"namespace":"smoke"'* && "${line}" == *'"name":"bad-image"'* ]]; then
+      printf '%s\n' "${line}"
+      exit 0
+    fi
+  done <<< "${logs}"
   sleep "${POLL_SLEEP_SECONDS}"
 done
 
