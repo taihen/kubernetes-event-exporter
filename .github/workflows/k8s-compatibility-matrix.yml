@@ -23,7 +23,7 @@ jobs:
       source_ref: ${{ steps.meta.outputs.source_ref }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: master
           fetch-depth: 0
@@ -64,7 +64,7 @@ jobs:
         include: ${{ fromJson(needs.prepare.outputs.matrix) }}
     steps:
       - name: Check out tested source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.source_ref }}
           fetch-depth: 0
@@ -154,7 +154,7 @@ jobs:
       contents: write
     steps:
       - name: Check out master
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: master
           fetch-depth: 0
